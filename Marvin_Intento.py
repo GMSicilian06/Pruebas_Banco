@@ -2,6 +2,9 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 
+#.xls y .xlm
+#repnuaf .xls
+
 #info importante, modificar antes de ejecutar
 
 #ver si es una fecha válida
@@ -61,7 +64,7 @@ def main(fecha):
         if item.is_dir() and is_valid_date(item.name) and int(nueva_fecha[0]) <= int(fecha):
             for documento in item.iterdir():
                 if documento.name.startswith('pairpack_di'):
-                    df_pairpack_di = pd.read_excel(documento)
+                    df_pairpack_di = pd.read_excel(documento, engine='xlrd')
 
                     marker__1, marker__2 = encontrar_fila_separadora(df_pairpack_di, "REMESAS PAGADAS", 'REMESAS ENVIADAS')
                     df__1, df__2 = dividir_dataframe(df_pairpack_di, marker__1, marker__2)
@@ -69,7 +72,7 @@ def main(fecha):
                     df_ENVIADAS = pd.concat([df_ENVIADAS, df__2], ignore_index=True)
 
                 elif documento.name.startswith('transnetwork_di'):
-                    df_transnetwork_di = pd.read_excel(documento)
+                    df_transnetwork_di = pd.read_xml(documento)
                     del df_transnetwork_di['MTO_PAGADOS_CORDOBAS']
 
                     marker_1, marker_2 = encontrar_fila_separadora(df_transnetwork_di, "REMESAS PAGADAS", 'REMESAS ENVIADAS')
@@ -79,7 +82,7 @@ def main(fecha):
                     df_ENVIADAS = pd.concat([df_ENVIADAS, df_2], ignore_index=True)
 
                 elif documento.name.startswith('remesasdi'):
-                    df_remesas_di = pd.read_excel(documento)
+                    df_remesas_di = pd.read_xml(documento)
                     del df_remesas_di['MTO_PAGADOS_CORDOBAS']
 
                     marker1, marker2 = encontrar_fila_separadora(df_remesas_di, "REMESAS PAGADAS", 'REMESAS ENVIADAS')
