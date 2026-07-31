@@ -1,0 +1,236 @@
+import pandas as pd
+from pandas import DataFrame
+from Preliminar import transformar_pasar_base_BG, transformar_pasar_base_ER, Variable_ER, meses, bancos, read_json, flatten
+import requests
+
+
+TC = 36.6243
+
+
+def Bancos(tabla: DataFrame, banco: str, año_1: int, año_2: int, campos: list, meses: list, ER: bool, TC: float):
+    """La tabla proviene de transformar_pasar_ER_BG, transformar_pasar_base_BG(tabla, campos)"""
+    años = [año for año in range(año_1, año_2 + 1)]
+    diccionario = {}
+
+    # --- FIX 1: normalizar el banco objetivo y el de cada fila antes de comparar ---
+    banco_norm = str(banco).strip().lower()
+
+    for _, row in tabla.iterrows():
+        año, bank, valor, campo, mes = row['Año'], row['Banco'], row['Valor'], row['Campo'], row['MES']
+
+        # Normalizamos año a string sin ".0" para evitar columnas duplicadas tipo "2025" / "2025.0"
+        año_str = str(año).strip()
+        if año_str.endswith('.0'):
+            año_str = año_str[:-2]
+
+        if str(bank).strip().lower() == banco_norm:
+            dict_tempo = {mes + " " + año_str: valor}
+
+            if campo in diccionario:
+                diccionario[campo].update(dict_tempo)
+            else:
+                diccionario[campo] = dict_tempo
+
+    # --- DEBUG: avisar si no hubo match de banco en absoluto ---
+    if not diccionario:
+        bancos_disponibles = sorted(set(str(b).strip() for b in tabla['Banco'].unique()))
+        print(f"[AVISO] No se encontraron filas para banco='{banco}'. "
+              f"Bancos disponibles en la tabla: {bancos_disponibles}")
+
+    df = pd.DataFrame.from_dict(diccionario, orient='index').fillna(0)
+
+    rangos = [col for col in df.columns if col != 'index']
+
+    def normalizar(t):
+        return (str(t).lower().strip()
+                .replace('á', 'a').replace('é', 'e').replace('í', 'i')
+                .replace('ó', 'o').replace('ú', 'u'))
+
+    def get_v(campo, fecha, debug=False):
+        try:
+            fecha_clean = str(fecha).strip()
+            if fecha_clean not in df.columns:
+                partes = fecha_clean.split(' ')
+                if len(partes) == 2 and '.' not in partes[1]:
+                    fecha_clean = f"{partes[0]} {partes[1]}.0"
+
+            if fecha_clean not in df.columns:
+                if debug:
+                    print(f"[get_v] fecha no encontrada: '{fecha}' (columnas: {list(df.columns)})")
+                return 0.0
+
+            campo_norm = normalizar(campo)
+
+            # --- FIX 2: intentar match EXACTO primero para evitar ambigüedad ---
+            for idx_real in df.index:
+                if campo_norm == normalizar(idx_real):
+                    return float(df.at[idx_real, fecha_clean])
+
+            # Si no hay match exacto, buscar coincidencias parciales
+            matches = [idx_real for idx_real in df.index if campo_norm in normalizar(idx_real)]
+
+            if len(matches) == 1:
+                return float(df.at[matches[0], fecha_clean])
+            elif len(matches) > 1:
+                if debug:
+                    print(f"[get_v] AMBIGUO: campo='{campo}' coincide con {matches}. "
+                          f"Usando el primero.")
+                return float(df.at[matches[0], fecha_clean])
+            else:
+                if debug:
+                    print(f"[get_v] campo no encontrado: '{campo}' "
+                          f"(índices disponibles: {list(df.index)})")
+                return 0.0
+        except Exception as e:
+            # --- FIX 3: ya no se traga el error en silencio ---
+            print(f"[get_v] ERROR con campo='{campo}', fecha='{fecha}': {e}")
+            return 0.0
+
+    if ER:
+        calculos = [
+            'Ingresos totales', 'Gastos', 'Costo de crédito', 'Impuesto', 'Utilidad',
+            'Validación Utilidad', 'Eficiencia', 'Utilidad acumulada (U$ M)',
+            'Margen financiero U$ M', 'INGRESOS FINANCIEROS', 'GASTOS FINANCIEROS', 'INGRESOS POR FX'
+        ]
+    else:
+        calculos = [
+            'CARTERA', 'DEPOSITOS', 'OTRAS OBLIGACIONES', 'TOTAL OBLIGACIONES', 'INVERSIONES',
+            'INTERESES', 'PRINCIPAL + INTERESES', 'CARTERA + INTERESES PROMEDIO', 'CARTERA PROMEDIO',
+            'INVERSIONES PROMEDIO', 'OBLIGACIONES PROMEDIO', 'Depositos totales', 'Depósitos Core',
+            'Inversiones 1', 'ROA', 'ROE', 'Depósitos Promedios', 'Obligaciones Promedios',
+            'CRECIMIENTO DEPOSITOS', 'CARTERA / DEPOSITOS', 'Loan to Deposit', 'Loans+Bonds/Deposits',
+            'Fecha', 'Dia', 'Dias Acumulados', 'UTILIDAD NETA MENSUAL', 'ACTIVOS PROMEDIO', 'PATRIMONIO PROMEDIO'
+        ]
+
+    estadisticas = {fecha: {calculo: [] for calculo in calculos} for fecha in rangos}
+
+    if ER:
+        for fecha in rangos:
+            ingresos_totales = (
+                get_v('Margen Financiero, bruto', fecha)
+                + get_v('Ingresos (Gastos) Operativos, neto', fecha)
+                + get_v('Resultados por Participación en Asociadas, Negocios Conjuntos y Subsidiarias', fecha)
+                + get_v('Ganancia por Valoración y Venta de Activos y Otros Ingresos', fecha)
+                + get_v('Ajustes netos por Diferencial Cambiario', fecha)
+                - get_v('Resultados por Deterioro de Activos no Financieros', fecha)
+                - get_v('Pérdida por Valoración y Venta de Activos', fecha)
+            )
+            estadisticas[fecha]['Ingresos totales'].append(ingresos_totales)
+
+            gastos = (
+                get_v('Gastos de Administración', fecha)
+                + get_v('Contribuciones por Leyes Especiales', fecha)
+            )
+            estadisticas[fecha]['Gastos'].append(gastos)
+
+            costo_credito = get_v('Resultados por Deterioro de Activos Financieros', fecha)
+            estadisticas[fecha]['Costo de crédito'].append(costo_credito)
+
+            impuesto = get_v('Gasto por Impuesto sobre la Renta', fecha)
+            estadisticas[fecha]['Impuesto'].append(impuesto)
+
+            utilidad_calculada = ingresos_totales - gastos - costo_credito - impuesto
+            estadisticas[fecha]['Utilidad'].append(utilidad_calculada)
+
+            resultado_ejercicio = get_v('RESULTADO DEL EJERCICIO', fecha)
+            estadisticas[fecha]['Validación Utilidad'].append(utilidad_calculada - resultado_ejercicio)
+
+            eficiencia = gastos / ingresos_totales if ingresos_totales != 0 else 0
+            estadisticas[fecha]['Eficiencia'].append(eficiencia)
+
+            estadisticas[fecha]['Utilidad acumulada (U$ M)'].append(resultado_ejercicio / TC / 1000)
+
+            ing_fin = get_v('INGRESOS FINANCIEROS', fecha)
+            gas_fin = get_v('GASTOS FINANCIEROS', fecha)
+            estadisticas[fecha]['INGRESOS FINANCIEROS'].append(ing_fin)
+            estadisticas[fecha]['GASTOS FINANCIEROS'].append(gas_fin)
+
+            ing_fx = (
+                get_v('Ajustes netos por Diferencial Cambiario', fecha)
+                + get_v('Ajustes netos por Mantenimiento de Valor', fecha)
+            )
+            estadisticas[fecha]['INGRESOS POR FX'].append(ing_fx)
+
+            margen_fin = (ing_fin - gas_fin + ing_fx) / TC / 1000
+            estadisticas[fecha]['Margen financiero U$ M'].append(margen_fin)
+
+    else:
+        dias_mes = {'ene': 31, 'feb': 28, 'mar': 31, 'abr': 30, 'may': 31, 'jun': 30,
+                    'jul': 31, 'ago': 31, 'sep': 30, 'oct': 31, 'nov': 30, 'dic': 31}
+
+        for idx, fecha in enumerate(rangos):
+            mes_str, año_str = fecha.split(' ')
+            dia_actual = dias_mes.get(mes_str.lower()[:3], 30)
+
+            cartera = (
+                get_v('Vigentes (Cartera de Créditos, Neta)', fecha)
+                + get_v('Prorrogados (Cartera de Créditos, Neta)', fecha)
+                + get_v('Reestructurados (Cartera de Créditos, Neta)', fecha)
+                + get_v('Cobro Judicial (Cartera de Créditos, Neta)', fecha)
+            )
+            estadisticas[fecha]['CARTERA'].append(cartera)
+
+            depositos = (
+                get_v('Moneda Extranjera (Efectivo y Equivalentes de Efectivo)', fecha)
+                + get_v('Moneda Nacional (Obligaciones con el Público)', fecha)
+                + get_v('Obligaciones por Depósitos de Instituciones Financieras y de Organismos Internacionales (Pasivo)', fecha)
+            )
+            estadisticas[fecha]['DEPOSITOS'].append(depositos)
+
+            otras_obligaciones = (
+                get_v('Obligaciones Subordinadas y/o Convertibles en Capital (Pasivo)', fecha)
+                + get_v('Intereses sobre Obligaciones con el Público por Depósitos (Obligaciones con el Público)', fecha)
+            )
+            estadisticas[fecha]['OTRAS OBLIGACIONES'].append(otras_obligaciones)
+
+            total_obligaciones = depositos + otras_obligaciones
+            estadisticas[fecha]['TOTAL OBLIGACIONES'].append(total_obligaciones)
+
+            inversiones = get_v('Títulos Valores (Inversiones, Neta)', fecha)
+            estadisticas[fecha]['INVERSIONES'].append(inversiones)
+
+            intereses = get_v('Intereses por Cobrar (Disponibilidades)', fecha)
+            estadisticas[fecha]['INTERESES'].append(intereses)
+
+            principal_intereses = cartera + inversiones + intereses
+            estadisticas[fecha]['PRINCIPAL + INTERESES'].append(principal_intereses)
+
+            fecha_anterior = rangos[idx - 1] if idx > 0 else None
+
+            if fecha_anterior:
+                cartera_ant = estadisticas[fecha_anterior]['CARTERA'][-1]
+                inv_ant = estadisticas[fecha_anterior]['INVERSIONES'][-1]
+                obli_ant = estadisticas[fecha_anterior]['TOTAL OBLIGACIONES'][-1]
+                dep_ant = estadisticas[fecha_anterior]['DEPOSITOS'][-1]
+                act_ant = get_v('TOTAL ACTIVOS', fecha_anterior)
+                pat_ant = get_v('TOTAL PATRIMONIO', fecha_anterior)
+            else:
+                cartera_ant, inv_ant, obli_ant, dep_ant = cartera, inversiones, total_obligaciones, depositos
+                act_ant = get_v('TOTAL ACTIVOS', fecha)
+                pat_ant = get_v('TOTAL PATRIMONIO', fecha)
+
+            estadisticas[fecha]['CARTERA PROMEDIO'].append((cartera + cartera_ant) / 2)
+            estadisticas[fecha]['INVERSIONES PROMEDIO'].append((inversiones + inv_ant) / 2)
+            estadisticas[fecha]['OBLIGACIONES PROMEDIO'].append((total_obligaciones + obli_ant) / 2)
+            estadisticas[fecha]['Depósitos Promedios'].append((depositos + dep_ant) / 2)
+            estadisticas[fecha]['Obligaciones Promedios'].append((total_obligaciones + obli_ant) / 2)
+            estadisticas[fecha]['CARTERA + INTERESES PROMEDIO'].append(((cartera + intereses) + (cartera_ant + intereses)) / 2)
+
+            estadisticas[fecha]['Fecha'].append(fecha)
+            estadisticas[fecha]['Dia'].append(dia_actual)
+            estadisticas[fecha]['ACTIVOS PROMEDIO'].append((get_v('TOTAL ACTIVOS', fecha) + act_ant) / 2)
+            estadisticas[fecha]['PATRIMONIO PROMEDIO'].append((get_v('TOTAL PATRIMONIO', fecha) + pat_ant) / 2)
+
+    df_estadisticas = pd.DataFrame.from_dict(
+        {k: {m: v[0] if v else 0 for m, v in ver.items()} for k, ver in estadisticas.items()},
+        orient='index'
+    )
+    return df, df_estadisticas
+
+
+if __name__ == "__main__":
+    Estadisticas_ER = read_json("Estado de Resultados (ER)", '2025-05-01', '2026-06-31')
+
+    tabla = transformar_pasar_base_ER(Estadisticas_ER, Variable_ER, bancos)[0]
+    print(tabla)
+    print(Bancos(tabla, 'AVANZ', 2025, 2026, Variable_ER, meses, True, TC))
