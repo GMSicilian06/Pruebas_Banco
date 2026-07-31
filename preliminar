@@ -1,0 +1,781 @@
+import pandas as pd
+from pandas import DataFrame
+import requests
+
+
+TC = 36.6243
+
+pd.set_option('display.max_rows', None)
+
+Variable_BG = [
+'Activo ()',
+'Moneda Nacional (Efectivo y Equivalentes de Efectivo)',
+'Caja (Moneda Nacional)',
+'Banco Central de Nicaragua (Moneda Nacional)',
+'Instituciones Financieras (Moneda Nacional)',
+'Depósitos Restringidos (Moneda Nacional)',
+'Equivalentes de Efectivo (Moneda Nacional)',
+'Moneda Extranjera (Efectivo y Equivalentes de Efectivo)',
+'Caja (Moneda Extranjera)',
+'Banco Central de Nicaragua (Moneda Extranjera)',
+'Instituciones Financieras (Moneda Extranjera)',
+'Depósitos Restringidos (Moneda Extranjera)',
+'Equivalentes de Efectivo (Moneda Extranjera)',
+'Inversiones a Valor Razonable con Cambios en Otro Resultado Integral (Activo)',
+'Cartera a Costo Amortizado (Activo)',
+'Inversiones a Costo Amortizado, Neto (Activo)',
+'Cartera de Créditos, Neta (Activo)',
+'Vigentes (Cartera de Créditos, Neta)',
+'Prorrogados (Cartera de Créditos, Neta)',
+'Reestructurados (Cartera de Créditos, Neta)',
+'Vencidos (Cartera de Créditos, Neta)',
+'Cobro Judicial (Cartera de Créditos, Neta)',
+'Intereses y Comisiones por Cobrar sobre Cartera de Créditos (Cartera de Créditos, Neta)',
+'(-) Provisión de Cartera de Créditos (Cartera de Créditos, Neta)',
+'Cuentas por Cobrar, Neto (Activo)',
+'Activos Recibidos en Recuperación de Créditos (Activo)',
+'Participaciones (Activo)',
+'Activo Material (Activo)',
+'Activos Intangibles (Activo)',
+'Activos Fiscales (Activo)',
+'Otros Activos (Activo)',
+'Pasivo ()',
+'Pasivos Financieros a Costo Amortizado (Pasivo)',
+'Obligaciones con el Público (Pasivo)',
+'Moneda Nacional (Obligaciones con el Público)',
+'Depósitos a la Vista (Moneda Nacional)',
+'Depósitos de Ahorro (Moneda Nacional)',
+'Depósitos a Plazo (Moneda Nacional)',
+'Moneda Extranjera (Obligaciones con el Público)',
+'Depósitos a la Vista (Moneda Extranjera)',
+'Depósitos de Ahorro (Moneda Extranjera)',
+'Depósitos a Plazo (Moneda Extranjera)',
+'Intereses sobre Obligaciones con el Público por Depósitos (Obligaciones con el Público)',
+'Otras Obligaciones Diversas con el Público (Pasivo)',
+'Obligaciones por Depósitos de Instituciones Financieras y de Organismos Internacionales (Pasivo)',
+'Obligaciones por Emisión de Deuda (Pasivo)',
+'Obligaciones con Instituciones Financieras y por otros Financiamientos (Pasivo)',
+'Obligaciones con el Banco Central de Nicaragua (Pasivo)',
+'Pasivos Fiscales (Pasivo)',
+'Obligaciones Subordinadas y/o Convertibles en Capital (Pasivo)',
+'Otros Pasivos y Provisiones (Pasivo)',
+'PATRIMONIO ()',
+'Fondos Propios (PATRIMONIO)',
+'Capital Social Pagado (Fondos Propios)',
+'Aportes a Capitalizar (Fondos Propios)',
+'Capital Donado (Fondos Propios)',
+'Reservas Patrimoniales (Fondos Propios)',
+'Resultados Acumulados (Fondos Propios)',
+'Resultado del Ejercicio (Fondos Propios)',
+'Otro Resultado Integral Neto (PATRIMONIO)',
+'Ajustes de Transición (PATRIMONIO)',
+'CUENTAS CONTINGENTES ()',
+'CUENTAS DE ORDEN ()',
+'Diferimiento de comisiones y otros (Cartera de Créditos, Neta)'
+]
+
+Variable_IF = [ 
+'2.- Vulnerabilidad del Patrimonio', '9. Tarjetas de Crédito Personales', '1. Exposición de partes relacionadas (%)', 
+'2. Ganadería', 'Cobertura de la Cartera de Créditos Improductiva Bruta', '1.- Total Activos Improductivos netos', 
+'7. Vehículos', '17. Intrafinanciamiento de Tarjeta Crédito Corporativas', 'Indice de Morosidad de Cartera de Credito Bruta', 
+'Cobertura de la Cartera de Créditos Bruta', '18. Intrafinanciamiento de Tarjeta Crédito por Operaciones de Microfinanzas', 
+'19. Viviendas de Interés Social', '1.1 - Créditos Vigentes', '9.- Cartera en Riesgo / Cartera Bruta', '2.- Margen Financiero en Riesgo / Patrimonio', 
+'Indice de Morosidad de Cartera de Credito Neta', '1.3 Clasificación C', '12. Otros', '1. - Total Evaluación de Cartera', 
+'2.- Cuota de Mercado en Captaciones del Público', '1.3 - Créditos Reestructurados', '8.- Cobertura con Provisiones Individuales', 
+'1.2 Clasificación B', '3.- Capital Primario + Resultados de periodos anteriores / APBR', '16. Intrafinanciamiento de Tarjeta Crédito Personales', 
+'1.1 Clasificación A', '2.- Activos Improductivos Brutos / Activo Total', '1.- Efectivo y Equivalentes de Efectivo / Captaciones del Público', 
+'4.- Cuota de Mercado de Cartera de Créditos Bruta', '6. Personales', '4.- Indice de Morosidad de Cartera de Créditos Bruta', 
+'1.4 - Créditos Vencidos', '10. Sector Público', '1.- Captaciones del Publico', '13. Extrafinanciamientos', 
+'15. Tarjetas de Crédito Microfinanzas', '3.- Valor Económico del Capital', '7.- Cobertura de la Cartera de Créditos Bruta', 
+'8. Adelantos de Salario', '4.- Valor Económico del Capital (Dism)', '1.- % Margen Financiero en Riesgo', '1. Agricultura', 
+'11. Desarrollo Habitacional o Urbano', '3.- Activos Improductivos Netos / Activo Total', '3. Industria', 
+'14. Tarjetas de Crédito Corporativas', 'b.- Razón de Endeudamiento (Nivel 1 + 2 + 3)', 'Cartera de Riesgo / Cartera Bruta', 
+'4. Comercio', '1.5 Clasificación E', '2.- Efectivo y Equivalentes de Efectivo / Cartera de Crédito Bruta', '3.- Cartera de Créditos Bruta', 
+'1.5 - Créditos en Cobro Judicial', '1.4 Clasificación D', 'a.- Razón de Apalancamiento Financiero (Nivel 1+2+3)', '5. Hipotecarios para vivienda', 
+'1.- Razón de Capital (Nivel 1 + 2 + 3)* s/ APBR', '1.2 - Créditos Prorrogados', '6.- Cobertura de la Cartera de Créditos Improductiva'
+]
+
+bancos = ['BANPRO','BANCO LAFISE BANCENTRO', 'BAC', 'BDF', 'BANCO FICOHSA', 'AVANZ', 'BANCO PRODUZCAMOS', 'BANCO ATLÁNTIDA', 'Financiera FDL, S.A.', 'SFN', 'SFB']
+Variable_ER = [
+    'Ingresos Financieros',
+    'Ingresos Financieros por Efectivo',
+    'Ingresos Financieros por Inversiones',
+    'Ingresos Financieros por Cartera de Créditos',
+    'Otros Ingresos Financieros',
+    'Gastos Financieros',
+    'Gastos Financieros por Obligaciones con el Público',
+    'Gastos Financieros por Depósitos de Instituciones Financieras y de Organismos Internacionales',
+    'Gastos Financieros por Emisión de Deuda',
+    'Gastos Financieros por Operaciones de Reporto',
+    'Gastos Financieros por Obligaciones con Instituciones Financieras y por Otros Financiamientos',
+    'Gastos Financieros por Obligaciones con el Banco Central de Nicaragua',
+    'Gastos Financieros por Obligaciones Subordinadas y/o Convertibles en Capital',
+    'Otros Gastos Financieros',
+    'Margen Financiero antes de Mantenimiento de Valor',
+    'Margen Financiero, bruto',
+    'Resultados por Deterioro de Activos Financieros',
+    'Margen Financiero, neto después de Deterioro de Activos Financieros',
+    'Ingresos (Gastos) Operativos, neto',
+    'Resultado Operativo',
+    'Resultados por Participación en Asociadas, Negocios Conjuntos y Subsidiarias',
+    'Ganancia por Valoración y Venta de Activos y Otros Ingresos',
+    'Pérdida por Valoración y Venta de Activos',
+    'Resultado después de Ingresos y Gastos operativos',
+    'Ajustes netos por Diferencial Cambiario',
+    'Resultado después de Diferencial Cambiario',
+    'Gastos de Administración',
+    'Resultados de operaciones antes de Impuestos y Contribuciones por Leyes Especiales',
+    'Contribuciones por Leyes Especiales',
+    'Gasto por Impuesto sobre la Renta',
+    'Resultado del Ejercicio',
+    'RESULTADO DEL EJERCICIO'
+    ]
+
+meses = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
+
+#lo ocupo para una función luegos
+def flatten(lista):
+    lista1 = []
+    for item in lista:
+        lista1.extend(item)
+    return lista1
+
+pd.set_option('display.float_format', lambda x: '%.2f' % x)
+
+def read_json(reporte, fecha_min, fecha_max):
+
+    url = "https://www.siboif.gob.ni/rest/estadisticas"
+    params = {
+            "intendencia": "Bancos",
+            "fecha[min]": fecha_min,
+            "fecha[max]": fecha_max,
+            "tipo_reporte": reporte
+            }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        data = response.json()
+                
+        print(f"Datos recibidos exitosamente: {reporte[1]}")
+    except requests.exceptions.HTTPError as http_err:
+        print(f"Ocurrió un error HTTP: {http_err}")
+    except requests.exceptions.ConnectionError as conn_err:
+        print(f"Error de conexión: {conn_err}")
+    except requests.exceptions.Timeout as timeout_err:
+        print(f"La petición superó el tiempo de espera: {timeout_err}")
+    except ValueError:
+        print("La respuesta no tiene un formato JSON válido.")
+        print("Contenido recibido:", response.text)
+    except Exception as err:
+        print(f"Ocurrió un error inesperado: {err}")
+
+    return pd.DataFrame(data)
+
+
+# Estadisticas_BG = read_json("Estado de Situación Financiera (ESF)", '2026-05-01', '2026-06-31')
+Estadisticas_ER = read_json("Estado de Resultados (ER)", '2026-05-01', '2026-06-31')
+# Estadisticas_IF = read_json("Indicadores Financieros", "2026-05-01", "2026-05-31") 
+
+
+
+def transformar_pasar_base_BG(tabla, campos, bancos):
+    dict_insertar = {banco: {campo :[] for campo in campos} for banco in bancos}
+
+    for _, row in tabla.iterrows():
+        institucion, variable, valor, mes, fecha, año, grupo = row['institucion'], row['variable_1'], row['valor_1'], row['mes'], row['fecha'], row['anio'], row['grupo']
+
+        variable_2 = str(variable) +' ()' if pd.isnull(grupo) else str(variable) +' ('+ str(grupo) + ')' 
+
+        if institucion not in bancos or variable_2 not in campos:
+            continue
+        else:
+            dict_insertar[institucion][variable_2].append((valor, mes, fecha, año, grupo)) 
+        
+        #Convertir a dataframe y despues concatenar con la base
+    data = []    
+    for banco, campos_dict in dict_insertar.items():
+        for campo, valores_list in campos_dict.items():
+            for valor, mes, fecha, año, grupo in valores_list:
+                data.append({
+                    'Banco': banco,
+                    'Campo': campo,
+                    'Valor': valor,
+                    'MES': mes, 
+                    'Fecha': fecha,
+                    'Año': año,
+                    'Grupo': grupo
+                })
+    pd.set_option('display.float_format', lambda x: '%.2f' % x)
+    df = pd.DataFrame(data)
+    return df, dict_insertar
+
+def transformar_pasar_base_ER(tabla: DataFrame, campos: list, bancos: list):
+
+    dict_insertar = {banco: {campo:[] for campo in campos} for banco in bancos}
+
+    for _, row in tabla.iterrows():
+        institucion, variable, valor, mes, fecha, año, grupo = row['institucion'], row['variable_1'], row['valor_1'], row['mes'], row['fecha'], row['anio'], row['grupo']
+
+        if institucion not in bancos or variable not in campos:
+            continue
+        else:
+            dict_insertar[institucion][variable].append((valor, mes, fecha, año, grupo)) 
+    
+    #Convertir a dataframe y despues concatenar con la base
+    data = []
+
+    for banco, campos_dict in dict_insertar.items():
+        for campo, valores_list in campos_dict.items():
+            for valor, mes, fecha, año, grupo in valores_list:
+                data.append({
+                    'Banco': banco,
+                    'Campo': campo,
+                    'Valor': valor,
+                    'MES': mes, 
+                    'Fecha': fecha,
+                    'Año': año,
+                    'Grupo': grupo
+                })
+    pd.set_option('display.float_format', lambda x: '%.2f' % x)
+    df = pd.DataFrame(data)
+    return df, dict_insertar
+
+# x = transformar_pasar_base_ER(Estadisticas_BG, Variable_ER)
+# print(x)
+
+#definamos para enviar a power BI
+
+def EEFF_Balance_Indicadores(dicti: dict, campos: list, bancos:list):
+    Banco_1 = flatten([[banco] * len(campos) for banco in bancos])
+    campos_1 = [campo for campo in campos] * len(bancos)
+    valores = []
+
+    for banco, campo in zip(Banco_1, campos_1):
+        try:
+            valor = dicti[banco][campo]
+            valores.append(valor[0][0])
+        except IndexError:
+            valores.append(0)
+    data = {
+        'Banco':Banco_1,
+        'campos': campos_1,
+        'valores': valores
+    }
+    df = pd.DataFrame(data)
+    
+    tabla_pivote = df.pivot_table(index='campos', columns='Banco', values='valores', aggfunc='sum')
+    ctabla_pivote = tabla_pivote.reset_index()
+
+    # with pd.ExcelWriter(r"C:\Users\PR00538\Documents\Libro1-Prueba.xlsx", mode='a', engine='openpyxl') as writer:
+    #     df.to_excel(writer, index=False)
+    return tabla_pivote
+
+
+tabla_1, diccionario_1 = transformar_pasar_base_ER(Estadisticas_ER, Variable_ER, bancos)
+# tabla_2, diccionario_2 = transformar_pasar_base_BG(Estadisticas_BG, Variable_BG, bancos)
+
+# tabla_grande = pd.concat([tabla_1, tabla_2])
+# diccionario_grande = pd.concat([diccionario_1, diccionario_2])
+x = EEFF_Balance_Indicadores(diccionario_1, Variable_ER, bancos)
+
+
+
+
+def Bancos(tabla: DataFrame, banco: str, año_1, año_2, campos: list, meses: list, ER: bool, TC: float):
+    """La la tabla proviene de transformr_pasar_ER_ BG, transformar_pasar_base_BG(tabla, campos)"""
+    
+    años = [number for number in range(año_1, año_2 + 1)]
+    rangos = flatten([[str(mes[:3]) + '-' + str(año) for mes in meses] for año in años])
+
+    campos_1 = flatten([[campo] * len(rangos) for campo in campos])
+    fechas_1 = [rango for rango in rangos] * len(campos)
+    bancos = [banco] * len(campos_1)
+
+    diccionario = {campo: {rango:[] for rango in rangos} for campo in campos}
+
+    for _, row in tabla.iterrows():
+        año, bank, valor, campo, mes = row['Año'], row['Banco'], row['Valor'], row['Campo'], row['MES']
+        if año in años and str(bank) == str(banco):
+            fecha_compuesta = str(mes[:3]) + '-' + str(año)
+            diccionario[campo][fecha_compuesta].append(valor)
+        else:
+            print(f"  NO HAY MATCH: {año} in {años}? {año in años}, {bank}=={banco}? {str(bank) == str(banco)}")
+
+    valores = []
+
+    for campo, fecha in zip(campos_1, fechas_1):
+            try:
+                valor_correspondiente = diccionario[campo][fecha][0]
+                valores.append(valor_correspondiente)
+            except Exception as e:
+                valores.append(0)
+
+    data = {'campos': campos_1, 'Fecha': fechas_1, 'Bancos': bancos, 'values': valores}
+    df = pd.DataFrame(data)
+    pivot_df = df.pivot_table(
+        index=["campos"],  
+        columns=["Fecha", "Bancos"],  
+        values="values", 
+        aggfunc="sum", 
+                            )
+    def sort_key(col):
+        fecha, bancos = col
+        mes_str, año_str = fecha.split('-')
+        mes_num = {m[:3]: i for i, m in enumerate(meses)}[mes_str]
+        return (bancos, int(año_str), mes_num)
+    
+    sorted_cols = sorted(pivot_df.columns, key=sort_key)
+    pivot_df = pivot_df[sorted_cols]
+
+        # Definir cálculos y estructura según el flag ER
+    if ER:
+        calculos = [
+            'Ingresos totales', 'Gastos', 'Costo de crédito', 'Impuesto', 'Utilidad',
+            'Validación Utilidad', 'Eficiencia', 'Utilidad acumulada (U$ M)',
+            'Margen financiero U$ M', 'INGRESOS FINANCIEROS', 'GASTOS FINANCIEROS', 'INGRESOS POR FX'
+        ]
+    else:
+        calculos = [
+            'CARTERA', 'DEPOSITOS', 'OTRAS OBLIGACIONES', 'TOTAL OBLIGACIONES', 'INVERSIONES',
+            'INTERESES', 'PRINCIPAL + INTERESES', 'CARTERA + INTERESES PROMEDIO', 'CARTERA PROMEDIO',
+            'INVERSIONES PROMEDIO', 'OBLIGACIONES PROMEDIO', 'Depositos totales', 'Depósitos Core',
+            'Inversiones 1', 'ROA', 'ROE', 'Depósitos Promedios', 'Obligaciones Promedios',
+            'CRECIMIENTO DEPOSITOS', 'CARTERA / DEPOSITOS', 'Loan to Deposit', 'Loans+Bonds/Deposits',
+            'Fecha', 'Dia', 'Dias Acumulados', 'UTILIDAD NETA MENSUAL', 'ACTIVOS PROMEDIO', 'PATRIMONIO PROMEDIO'
+        ]
+
+    # Inicialización correcta como diccionario de listas
+    estadisticas = {fecha: {calculo: [] for calculo in calculos} for fecha in rangos}
+
+    if ER:
+        for fecha in rangos:
+            # Ingresos totales (Corregida la minúscula)
+            estadisticas[fecha]['Ingresos totales'].append(
+                pivot_df.loc['Margen Financiero, bruto', (fecha, banco)] 
+                + pivot_df.loc['Ingresos (Gastos) Operativos, neto', (fecha, banco)]
+                + pivot_df.loc['Resultados por Participación en Asociadas, Negocios Conjuntos y Subsidiarias', (fecha, banco)]
+                + pivot_df.loc['Ganancia por Valoración y Venta de Activos y Otros Ingresos', (fecha, banco)]
+                + pivot_df.loc['Ajustes netos por Diferencial Cambiario', (fecha, banco)]
+                - pivot_df.loc['Resultados por Deterioro de Activos no Financieros', (fecha, banco)]
+                - pivot_df.loc['Pérdida por Valoración y Venta de Activos', (fecha, banco)]
+            )
+            
+            # Gastos
+            estadisticas[fecha]['Gastos'].append(
+                pivot_df.loc['Gastos de Administración', (fecha, banco)] 
+                + pivot_df.loc['Contribuciones por Leyes Especiales', (fecha, banco)]
+            )
+
+            # Costo de crédito
+            estadisticas[fecha]['Costo de crédito'].append(
+                pivot_df.loc['Resultados por Deterioro de Activos Financieros', (fecha, banco)]
+            )
+
+            # Impuesto
+            estadisticas[fecha]['Impuesto'].append(
+                pivot_df.loc['Gasto por Impuesto sobre la Renta', (fecha, banco)]
+            )
+
+            # Utilidad
+            utilidad_calculada = (
+                estadisticas[fecha]['Ingresos totales'][-1] 
+                - estadisticas[fecha]['Gastos'][-1] 
+                - estadisticas[fecha]['Costo de crédito'][-1] 
+                - estadisticas[fecha]['Impuesto'][-1]
+            )
+            estadisticas[fecha]['Utilidad'].append(utilidad_calculada)
+
+            # Validación Utilidad
+            estadisticas[fecha]['Validación Utilidad'].append(
+                estadisticas[fecha]['Utilidad'][-1] 
+                - pivot_df.loc['RESULTADO DEL EJERCICIO', (fecha, banco)]
+            )
+
+            # Eficiencia
+            estadisticas[fecha]['Eficiencia'].append(
+                estadisticas[fecha]['Gastos'][-1] / estadisticas[fecha]['Ingresos totales'][-1]
+            )
+
+            # Utilidad acumulada (U$ M)
+            estadisticas[fecha]['Utilidad acumulada (U$ M)'].append(
+                pivot_df.loc['RESULTADO DEL EJERCICIO', (fecha, banco)] / TC / 1000
+            )
+
+            # Ingresos y Gastos Financieros
+            estadisticas[fecha]['INGRESOS FINANCIEROS'].append(
+                pivot_df.loc['INGRESOS FINANCIEROS', (fecha, banco)]
+            )
+            estadisticas[fecha]['GASTOS FINANCIEROS'].append(
+                pivot_df.loc['GASTOS FINANCIEROS', (fecha, banco)]
+            )
+            
+            # Ingresos por FX
+            estadisticas[fecha]['INGRESOS POR FX'].append(
+                pivot_df.loc['Ajustes netos por Diferencial Cambiario', (fecha, banco)] 
+                + pivot_df.loc['Ajustes netos por Mantenimiento de Valor', (fecha, banco)]
+            )
+
+            # Margen financiero U$ M
+            estadisticas[fecha]['Margen financiero U$ M'].append(
+                (estadisticas[fecha]['INGRESOS FINANCIEROS'][-1] 
+                - estadisticas[fecha]['GASTOS FINANCIEROS'][-1] 
+                + estadisticas[fecha]['INGRESOS POR FX'][-1]) / TC / 1000
+            )
+
+    else:
+        for fecha in rangos:
+            # CARTERA 
+            estadisticas[fecha]['CARTERA'].append(
+                pivot_df.loc['Vigentes (Cartera de Créditos, Neta)', (fecha, banco)] 
+                + pivot_df.loc['Prorrogados (Cartera de Créditos, Neta)', (fecha, banco)] 
+                + pivot_df.loc['Reestructurados (Cartera de Créditos, Neta)', (fecha, banco)] 
+                + pivot_df.loc['Cobro Judicial (Cartera de Créditos, Neta)', (fecha, banco)]
+            )
+
+            # DEPOSITOS
+            estadisticas[fecha]['DEPOSITOS'].append(
+                pivot_df.loc['Moneda Extranjera (Efectivo y Equivalentes de Efectivo)', (fecha, banco)] 
+                + pivot_df.loc['Moneda Nacional (Obligaciones con el Público)', (fecha, banco)] 
+                + pivot_df.loc['Obligaciones por Depósitos de Instituciones Financieras y de Organismos Internacionales (Pasivo)', (fecha, banco)]
+            )
+
+            # OTRAS OBLIGACIONES
+            estadisticas[fecha]['OTRAS OBLIGACIONES'].append(
+                pivot_df.loc['Obligaciones Subordinadas y/o Convertibles en Capital (Pasivo)', (fecha, banco)] 
+                + pivot_df.loc['Intereses sobre Obligaciones con el Público por Depósitos (Obligaciones con el Público)', (fecha, banco)] 
+            )
+            # Nota: Agrega aquí el resto de tus cálculos para el bloque else...
+
+            
+            # TOTAL OBLIGACIONES 
+            estadisticas[fecha]['TOTAL OBLIGACIONES'].append(
+                estadisticas[fecha]['DEPOSITOS'][-1] 
+                + estadisticas[fecha]['OTRAS OBLIGACIONES'][-1]
+            )
+
+            # INVERSIONES 
+            estadisticas[fecha]['INVERSIONES'].append(
+                pivot_df.loc['Equivalentes de Efectivo (Moneda Nacional)', (fecha, banco)]
+                + pivot_df.loc['Equivalentes de Efectivo (Moneda Extranjera)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Valor Razonable con Cambios en Otro Resultado Integral (Activo)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Costo Amortizado, Neto (Activo)', (fecha, banco)]
+            )
+            
+            #INTERESES
+            estadisticas[fecha]['INTERESES'].append(
+                pivot_df.loc['Equivalentes de Efectivo (Moneda Nacional)', (fecha, banco)]
+                + pivot_df.loc['Equivalentes de Efectivo (Moneda Extranjera)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Valor Razonable con Cambios en Otro Resultado Integral (Activo)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Costo Amortizado, Neto (Activo)', (fecha, banco)]
+            )
+
+            
+            estadisticas[fecha]['PRINCIPAL + INTERESES'] = estadisticas[fecha]['INTERESES'][0] + estadisticas[fecha]['CARTERA'][0]
+
+            estadisticas[fecha]['CARTERA + INTERESES PROMEDIO'].append(
+                pivot_df.loc['Equivalentes de Efectivo (Moneda Nacional)', (fecha, banco)]
+                + pivot_df.loc['Equivalentes de Efectivo (Moneda Extranjera)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Valor Razonable con Cambios en Otro Resultado Integral (Activo)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Costo Amortizado, Neto (Activo)', (fecha, banco)]
+            )
+
+            estadisticas[fecha]['CARTERA PROMEDIO'].append(
+                pivot_df.loc['Equivalentes de Efectivo (Moneda Nacional)', (fecha, banco)]
+                + pivot_df.loc['Equivalentes de Efectivo (Moneda Extranjera)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Valor Razonable con Cambios en Otro Resultado Integral (Activo)', (fecha, banco)]
+                + pivot_df.loc['Inversiones a Costo Amortizado, Neto (Activo)', (fecha, banco)]
+            )
+
+            estadisticas[fecha]['INVERSIONES PROMEDIO'] = None
+
+            estadisticas[fecha]['OBLIGACIONES PROMEDIO'] = None
+
+            estadisticas[fecha]['Depositos totales'] = None
+
+            estadisticas[fecha]['Depositos Core'] = None
+
+            estadisticas[fecha]['Inversiones 1'] = None
+
+            estadisticas[fecha]['ROA'] = None
+
+            estadisticas[fecha]['ROE'] = None
+
+            estadisticas[fecha]['Depósitos Promedio'] = None
+
+            estadisticas[fecha]['Obligaciones Promedios'] = None
+
+            estadisticas[fecha]['CRECIMIENTO DEPOSITOS'] = None
+
+            estadisticas[fecha][ 'CARTERA / DEPOSITOS'] = None
+
+            estadisticas[fecha]['Loan to Deposit'] = None
+
+            estadisticas[fecha]['Loans+Bonds/Deposits'] = None
+
+            estadisticas[fecha]['Fecha'] = None
+
+            estadisticas[fecha]['Dia'] = None
+
+            estadisticas[fecha]['Dias Acumulados'] = None
+
+            estadisticas[fecha]['UTILIDAD NETA MENSUAL' ] = None
+
+            estadisticas[fecha]['ACTIVOS PROMEDIO'] = None
+
+            estadisticas[fecha]['PATRIMONIO PROMEDIO'] = None
+            
+
+    return pivot_df, estadisticas
+
+# x = Bancos(tabla, 'BDF', 2025, 2026, Variable_ER, meses, True, TC)[0]
+# print(x)
+
+# tabla_1= transformar_pasar_base_BG(Estadisticas_BG, Variable_BG, bancos)
+# tabla_2 = transformar_pasar_base_ER(Estadisticas_ER, Variable_ER, bancos)[0]
+
+# tabla, _ = transformar_pasar_base_ER(Estadisticas_ER, campos_ER)
+
+# print(Bancos(tabla, 'BDF', 2026, 2026, campos_ER, meses))
+
+
+def resumen(tabla, campos, mes, bancos, años, estadisticas_ER, estadisticas_BG, estadisticas_IF, TC):
+
+    fecha_compuesta_1 = str(mes[:3]) + '-' + str(años)
+    fecha_compuesta_2 = str(mes[:3]) + '-' + str(años - 1)
+
+    fecha_compuesta_PM_1 = fecha_compuesta_1 + 'Partc. Mercado'
+    fecha_compuesta_PM_2 = fecha_compuesta_2 + 'Partc. Mercado'
+
+    diccionario_1 = {'Institución': [banco for banco in bancos],
+                                    fecha_compuesta_1: [], 
+                                    fecha_compuesta_2: [],
+                                    'Variación%': [],
+                                    'Variación_USD': [],
+                                    fecha_compuesta_PM_1: [], 
+                                    fecha_compuesta_PM_2: []}
+    
+    diccionario_2 = {'Institución': [banco for banco in bancos], fecha_compuesta_1: [], fecha_compuesta_2: []}
+
+    tabla_ER = transformar_pasar_base_ER(tabla, campos)
+    tabla_BG = transformar_pasar_base_BG(tabla, campos)
+
+    tablas_cruzadas_ER = {f'{banco}_ER': Bancos(tabla_ER, banco, años - 1, años, Variable_ER, True, TC)[0] for banco in bancos}
+    tablas_cruzadas_BG = {f'{banco}_BG': Bancos(tabla_BG, banco, años - 1, años, Variable_BG, False, TC)[0] for banco in bancos}
+
+    estadisticas_ER = {f'{banco}_ER': Bancos(tabla_ER, banco, años - 1, años, Variable_ER, True, TC)[1] for banco in bancos}
+    estadisticas_BG = {f'{banco}_BG': Bancos(tabla_ER, banco, años - 1, años, Variable_ER, True, TC)[1] for banco in bancos}
+
+    tablas_cruzadas = {}
+
+    estadisticas = estadisticas_ER | estadisticas_BG
+
+    for banco_ER, banco_BG in zip(tablas_cruzadas_ER.keys(), tablas_cruzadas_BG.keys()):
+        df = pd.concat([banco_ER, banco_BG])
+        tablas_cruzadas[str(banco_ER.split('_')[0])] = df
+    
+    def comparacion_año_anterior(tablas_cruzadas: dict, estadisticas, TC: int):
+        lista = ['Activo ()', 'Cartera de Créditos, Neta (Activo)', 'PATRIMONIO ()', 'Depositos Totales', 'Depositos Core', 'Utilidad', 'INVERSIONES']
+        banco_compuesto = [f'{banco}_ER' for banco in bancos] + [f'{banco}_BG' for banco in bancos]
+
+        for campo in lista:
+            for banco in banco_compuesto:
+                if campo in ['Activos ()', 'Cartera de Créditos, Neta (Activo)', 'PATRIMONIO ()']:
+                    data = tablas_cruzadas[banco]
+                    valor_1 = data.loc[campo, (fecha_compuesta_1, banco)]/1000
+                    valor_2 = data.loc[campo, (fecha_compuesta_2, banco)]/1000
+                    diccionario_1[fecha_compuesta_1].append(valor_1)
+                    diccionario_1[fecha_compuesta_2].append(valor_2)
+                    diccionario_1['Variación%'].append((valor_2 - valor_1)/valor_1)
+                    diccionario_1['Variación_USD'].append(valor_2 - valor_1)
+
+                    diccionario_2[fecha_compuesta_1].append(data.loc[campo, (fecha_compuesta_1, banco)]/1000)
+                    diccionario_2[fecha_compuesta_2].append(data.loc[campo, (fecha_compuesta_2, banco)]/1000)
+
+                else:
+                    valor_1 = estadisticas[fecha_compuesta_1][campo]/1000
+                    valor_2 = estadisticas[fecha_compuesta_2][campo]/1000
+
+                    diccionario_1[fecha_compuesta_1].append(valor_1)
+                    diccionario_1[fecha_compuesta_2].append(valor_2)            
+                    diccionario_1['Variación%'].append((valor_2 - valor_1)/valor_1)
+                    diccionario_1['Variación_USD'].append(valor_2 - valor_1)
+
+                    diccionario_2[fecha_compuesta_1].append(valor_1)
+                    diccionario_2[fecha_compuesta_2].append(valor_2)
+                    
+            diccionario_1[fecha_compuesta_PM_1].extend([x/sum(diccionario_1[fecha_compuesta_1]) for x in diccionario_1[fecha_compuesta_1]])
+            diccionario_1[fecha_compuesta_PM_2].append([x/sum(diccionario_1[fecha_compuesta_2]) for x in diccionario_1[fecha_compuesta_2]])
+
+            df_1, df_2 = pd.DataFrame(diccionario_1), pd.DataFrame(diccionario_2)
+
+            return df_1, df_2
+
+    def Margen_Financiero(tablas_cruzadas, estadisticas):
+        campos = ['Ingresos Financieros por Inversiones', 'Ingresos Financieros por Cartera de Créditos', 'Ingresos Financieros', 'Ajustes Mantenimiento de Valor', 'Ajustes netos por Diferencial Cambiario' , 'Gastos Financieros por Obligaciones con el Público', 'Oblig. Bancarias', 'Otros', 'Int. Recibidos', 'Int. Pagados', 'Margen Financiero']
+
+        fechas_columnas = flatten([[fecha_compuesta_1, fecha_compuesta_2] for _ in range(len(bancos))])
+        bancos_columnas = flatten([[banco, banco] for banco in bancos])
+
+        diccionario = {campo: {(fecha, banco):[] for fecha, banco in zip(fechas_columnas, bancos_columnas)} for campo in campos}
+        claves = diccionario[campos[0]].keys()
+
+        dfs = []
+
+        for campo in campos:
+            
+            for fecha, banco in claves:
+
+                if campo == 'Int. Recibidos':
+                    diccionario['Int. Recibidos'].append(diccionario['Ingresos Financieros por Inversiones'][(fecha, banco)] + diccionario['Ingresos Financieros por Cartera de Créditos'][(fecha, banco)] + diccionario['Otros'][(fecha, banco)])
+                    
+                elif campo == 'Margen financiero':
+                    diccionario['Margen financiero'][(fecha, banco)].append(diccionario['Int. Recibidos'][(fecha, banco)] - diccionario['Int. Pagados'][(fecha, banco)])
+
+                elif campo == 'Oblig. Bancarias': 
+                    diccionario['Oblig. Bancarias'].append(diccionario['Gastos Financieros'][(fecha, banco)] - diccionario['Gastos Financieros por Obligaciones con el Público'][(fecha, banco)])
+
+                elif campo == 'Int. Pagados':
+                    diccionario['Int. Pagados'][(fecha, banco)].append(diccionario['Depósitos'][(fecha, banco)] + diccionario['Oblig. Bancarias'][(fecha, banco)])
+
+                elif campo == 'Otros':
+                    diccionario['Otros'][(fecha, banco)].append(diccionario['Ingresos Financieros'][(fecha, banco)] + diccionario['Ajustes Mantenimiento de Valor'][(fecha, banco)] + diccionario['Ajustes netos por Diferencial Cambiario'][(fecha, banco)] - diccionario['Ingresos Financieros por Inversiones'][(fecha, banco)] - diccionario['Ingresos Financieros por Cartera de Créditos'][(fecha, banco)])
+
+                else:
+                    data = tablas_cruzadas[banco] 
+                    valor = data.loc[campo, (fecha, banco)]
+                    diccionario[campo][(fecha, banco)].append(valor)
+
+        df = pd.DataFrame.from_dict(diccionario, orient="index")
+
+        return df
+    
+    def Utilidad_acumulada(tablas_cruzadas, estadisticas):
+
+        campos = ['Margen Financiero', 'Resultados por Deterioro de Activos Financieros', 'Gastos de Administración', 'Contribuciones por Leyes Especiales', 'Gasto por Impuesto sobre la Renta', 'Ingresos (Gastos) Operativos, neto', 
+                'Ganancia por Valoración y Venta de Activos y Otros Ingresos', 'Pérdida por Valoración y Venta de Activos', 'Resultados por Participación en Asociadas, Negocios Conjuntos y Subsidiarias', 
+                'Resultados por Deterioro de Activos no Financieros', 'Otros Ingresos', 'Margen Amplio', 'Util. Antes impuestos', 'Impuesto', 'Utilidad']
+
+        fechas_columnas = flatten([[fecha_compuesta_1, fecha_compuesta_2] for _ in range(len(bancos))])
+        bancos_columnas = flatten([[banco, banco] for banco in bancos])
+        
+        diccionario = {campo: {(fecha, banco):[] for fecha, banco in zip(fechas_columnas, bancos_columnas)} for campo in campos}
+        claves = diccionario[campos[0]].keys()
+
+        for campo in campos:
+            for fecha, banco in claves:
+                if campo == 'Otros Ingresos':
+                    diccionario[campo][(fecha, banco)].append(
+                        diccionario['Ingresos (Gastos) Operativos, neto'][(fecha, banco)][-1] + 
+                        diccionario['Ganancia por Valoración y Venta de Activos y Otros Ingresos'][(fecha, banco)][-1] + 
+                        diccionario['Pérdida por Valoración y Venta de Activos'][(fecha, banco)][-1] + 
+                        diccionario['Resultados por Participación en Asociadas, Negocios Conjuntos y Subsidiarias'][(fecha, banco)][-1] + 
+                        diccionario['Resultados por Deterioro de Activos no Financieros'][(fecha, banco)][-1]
+                    )
+                elif campo == 'Margen financiero':
+                    valor = estadisticas[f'{banco}_ER'][fecha]['Margen financiero U$ M'] * TC
+                    diccionario[campo][(fecha, banco)].append(valor)
+                elif campo == 'Margen Amplio':
+                    diccionario[campo][(fecha, banco)].append(diccionario['Margen financiero'][(fecha, banco)][-1] + diccionario['Resultados por Deterioro de Activos Financieros'][(fecha, banco)][-1] + diccionario['Otros Ingresos'][(fecha, banco)][-1])
+                elif campo == 'Util. Antes impuestos':
+                    diccionario[campo][(fecha, banco)].append(diccionario['Margen Amplio'][(fecha, banco)][-1] + diccionario['Gastos de Administración'][(fecha, banco)][-1])
+                elif campo == 'Impuesto':
+                    diccionario[campo][(fecha, banco)].append(diccionario['Contribuciones por Leyes Especiales'][(fecha, banco)][-1] + diccionario['Gasto por Impuesto sobre la Renta'][(fecha, banco)][-1])
+                elif campo == 'Utilidad':
+                    diccionario[campo][(fecha, banco)].append(diccionario['Util. Antes impuestos'][(fecha, banco)][-1] - diccionario['Impuesto'][(fecha, banco)[-1]])
+
+                else:
+                    data = tablas_cruzadas[f'{banco}_ER']
+                    diccionario[campo][(fecha, banco)].append(data.loc[campo, (fecha, banco)])
+
+        df = pd.DataFrame.from_dict(diccionario, orient="index")
+        return df
+    
+    def Indicadores_Financieros(tabla, campos):
+        Principales_Cifras = ['Activos',
+                            'Inversiones',
+                            'Cartera',
+                            'Depósitos',
+                            'Depósitos Core',
+                            'Patrimonio',
+                            'Utilidad Neta',
+                            'Utilidad Mensual']
+        Indicadores = ['ROE',
+                        'ROA',
+                        'IAC',
+                        'Liquidez',
+                        'NIM',
+                        'Mora',
+                        'Eficiencia',
+                        'Marketshare Activos']
+        
+        Crecimiento_Interanual = ['Activos',
+                                'Inversiones',
+                                'Cartera',
+                                'Depósitos',
+                                'Depósitos Core',
+                                'Patrimonio',
+                                'Utilidades'
+                                ]
+
+        comparacion_año_anterior(tablas_cruzadas, estadisticas, TC)
+
+
+   
+    return None
+
+# def NIM(tabla, bancos, campos, estadisticas_ER, estadisticas_BG):
+#     pass
+
+# # def Complementarios(tabla1, tabla2):
+# #     pass
+
+# # def Sistema_Bancario(tabla1, tabla2):
+# #     pass
+
+# # def Bancos_Total_Sector(tabla1, tabla2):
+# #     pass
+
+# # def resumen(tabla1, tabla2):
+# #     pass
+
+# # def consolidado_interanual(tabla):
+# #     pass
+
+# # def Estadisticas_Flourish(tabla):
+# #     pass
+
+# # def Evolucion(tabla):
+# #     pass
+
+# # def presentaciones(tabla1, tabla2):
+# #     pass
+
+# # #Al parecer, proviene de Insumos Financieros
+# # def MarketShare(tabla):
+# #     def GRUPO_marketshare(tabla):
+# #         pass
+
+# #     def desglose_actividad_economica(tabla):
+# #         pass
+
+# #     def distrubucion_carterabruta(tabla):
+# #         pass
+
+# #     def participacion(tabla):
+# #         pass
+
+# #     def crecimiento_interanual(tabla):
+# #         pass
+
+# #     def distribucion_carterabruta_por_banco(tabla):
+# #         pass
+
+# #     def distribucion_cartera_individual(tabla):
+# #         pass
+
+# #     def crecimiento_interanual_porbanco(tabla):
+# #         pass
+
+# # def perfil_bancario(tabla):
+# #     #estamos hechos, no te ahueves
+# #     pass
