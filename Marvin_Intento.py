@@ -5,7 +5,6 @@ from pathlib import Path
 from datetime import datetime
 
 def leer_xml(file_path):
-    #tree = etree.parse(r"\\172.25.16.15\Reportes Cobis_BI\Remesas\2026\Julio\16072026\remesasdi_RIA_1616072026.xml")
     tree = etree.parse(file_path)
 
     ns = {
