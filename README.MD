@@ -1,3 +1,3 @@
-<h1><b>Your Large Bold Text Here</b></h1>
+<h1><b>Code for automation on the analysis report for the bank's key future decisions and future planning based on key financial indicators posted by the Nicaraguan Regulatory entity for banks and the bank's own data</b></h1>
 
-Automation using Pandas, Numpy and Power BI regarding the analysis using key financial Indicator statistics that are monthly posted by the Nicaraguan Banking regulatory system.
+Used API requests, data manipulation in Pandas to automatically produce and present the analysis, ultimately shown in Power BI
